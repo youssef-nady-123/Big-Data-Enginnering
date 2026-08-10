@@ -62,6 +62,11 @@ A collection of my learning, practice, and projects in **Big Data Engineering**,
 
 ---
 
+### 🤖 Note
+The materials in this repository were created with the assistance of ChatGPT and Claude AI.
+These AI tools were used to support learning, explanations, practice, code development, debugging, 
+and documentation throughout the Big Data Engineering learning journey.
+
 ## 📚 Learning Path
 
 ```text
@@ -88,10 +93,3 @@ Apache Kafka
 Apache Airflow
    ↓
 End-to-End Data Engineering Projects
-
-```text
-
-### 🤖 Note
-The materials in this repository were created with the assistance of ChatGPT and Claude AI.
-These AI tools were used to support learning, explanations, practice, code development, debugging,
-and documentation throughout the Big Data Engineering learning journey.
