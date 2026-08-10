@@ -89,8 +89,8 @@ Apache Airflow
    ↓
 End-to-End Data Engineering Projects
 
-🤖 Note
 
+### 🤖 Note
 The materials in this repository were created with the assistance of ChatGPT and Claude AI.
-
-These AI tools were used to support learning, explanations, practice, code development, debugging, and documentation throughout the Big Data Engineering learning journey.
+These AI tools were used to support learning, explanations, practice, code development, debugging,
+and documentation throughout the Big Data Engineering learning journey.
