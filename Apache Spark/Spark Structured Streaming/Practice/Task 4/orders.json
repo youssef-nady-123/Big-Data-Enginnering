@@ -1,0 +1,8 @@
+{"order_id":"ORD1001","customer_id":501,"customer_name":"John Doe","product":"Laptop","category":"Electronics","quantity":1,"price":1200.0,"city":"Toronto","timestamp":"2026-08-26T10:00:00"}
+{"order_id":"ORD1002","customer_id":502,"customer_name":"Sarah Smith","product":"Phone","category":"Electronics","quantity":2,"price":800.0,"city":"Montreal","timestamp":"2026-08-26T10:02:00"}
+{"order_id":"ORD1003","customer_id":503,"customer_name":"Mike Brown","product":"Desk","category":"Furniture","quantity":1,"price":450.0,"city":"Toronto","timestamp":"2026-08-26T10:05:00"}
+{"order_id":"ORD1004","customer_id":501,"customer_name":"John Doe","product":"Mouse","category":"Electronics","quantity":3,"price":25.0,"city":"Toronto","timestamp":"2026-08-26T10:07:00"}
+{"order_id":"ORD1005","customer_id":504,"customer_name":"Emma Wilson","product":"Chair","category":"Furniture","quantity":2,"price":150.0,"city":"Vancouver","timestamp":"2026-08-26T10:10:00"}
+{"order_id":"ORD1006","customer_id":505,"customer_name":"David Lee","product":"Keyboard","category":"Electronics","quantity":2,"price":75.0,"city":"Montreal","timestamp":"2026-08-26T10:12:00"}
+{"order_id":"ORD1007","customer_id":503,"customer_name":"Mike Brown","product":"Monitor","category":"Electronics","quantity":2,"price":300.0,"city":"Toronto","timestamp":"2026-08-26T10:15:00"}
+{"order_id":"ORD1008","customer_id":506,"customer_name":"Lisa Taylor","product":"Table","category":"Furniture","quantity":1,"price":600.0,"city":"Vancouver","timestamp":"2026-08-26T10:18:00"}

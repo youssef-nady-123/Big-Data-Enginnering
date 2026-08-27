@@ -1,0 +1,2 @@
+{"order_id":"ORD1004","timestamp":"2026-08-26T11:00:00Z","customer":{"customer_id":504,"name":"Sarah Wilson","email":"sarah@example.com","address":{"city":"Calgary","postal_code":"T2P1J9"}},"product":"Monitor","category":"Electronics","quantity":2,"price":350.0}
+{"order_id":"ORD1005","timestamp":"2026-08-26T11:10:00Z","customer":{"customer_id":505,"name":"David Lee","email":"david@example.com","address":{"city":"Ottawa","postal_code":"K1P1J1"}},"product":"Headphones","category":"Audio","quantity":3,"price":80.0}

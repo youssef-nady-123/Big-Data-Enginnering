@@ -1,0 +1,235 @@
+# ============================================================
+# ADVANCED SPARK STRUCTURED STREAMING PROJECT
+# Joins + Stateful Aggregation + Deduplication
+# + Late Events + Watermark + foreachBatch
+# ============================================================
+
+from pyspark.sql import SparkSession
+from pyspark.sql.functions import *
+from pyspark.sql.types import *
+
+
+# ============================================================
+# 1. CREATE SPARK SESSION
+# ============================================================
+
+spark = (
+    SparkSession.builder
+    .appName("Advanced Streaming Project")
+    .getOrCreate()
+)
+
+spark.sparkContext.setLogLevel("WARN")
+
+print("Spark version:", spark.version)
+
+
+# ============================================================
+# 2. DEFINE ORDER SCHEMA
+# ============================================================
+
+order_schema = StructType([
+    StructField("order_id", StringType(), False),
+    StructField("customer_id", IntegerType(), False),
+    StructField("product", StringType(), True),
+    StructField("category", StringType(), True),
+    StructField("quantity", IntegerType(), True),
+    StructField("price", DoubleType(), True),
+    StructField("event_time", TimestampType(), True)
+])
+
+
+# ============================================================
+# 3. READ CUSTOMERS AS STATIC DATA
+# ============================================================
+
+customers = (
+    spark.read
+    .json("hdfs://localhost:9000/data/customers/customers.json")
+)
+
+print("Customers:")
+customers.show()
+
+
+# ============================================================
+# 4. READ ORDERS AS STREAM
+# ============================================================
+
+orders = (
+    spark.readStream
+    .schema(order_schema)
+    .json("hdfs://localhost:9000/data/orders")
+)
+
+
+# ============================================================
+# 5. CALCULATE TOTAL ORDER VALUE
+# ============================================================
+
+orders = orders.withColumn(
+    "total_amount",
+    col("quantity") * col("price")
+)
+
+
+# ============================================================
+# 6. DEDUPLICATION
+# ============================================================
+
+# Keep only one record for each order_id.
+#
+# Watermark allows Spark to eventually remove old state
+# used for deduplication.
+
+orders_dedup = (
+    orders
+    .withWatermark("event_time", "10 minutes")
+    .dropDuplicates(["order_id"])
+)
+
+
+# ============================================================
+# 7. JOIN STREAM WITH STATIC CUSTOMER DATA
+# ============================================================
+
+enriched_orders = (
+    orders_dedup
+    .join(
+        customers,
+        on="customer_id",
+        how="left"
+    )
+)
+
+
+# ============================================================
+# 8. HANDLE LATE EVENTS
+# ============================================================
+
+# Spark uses event_time rather than processing time.
+#
+# Example:
+#
+# event_time = 10:00
+# event_time = 10:05
+# event_time = 09:55
+#
+# The watermark tells Spark how long to wait for late data.
+
+enriched_orders = (
+    enriched_orders
+    .withWatermark("event_time", "10 minutes")
+)
+
+
+# ============================================================
+# 9. WINDOWED STATEFUL AGGREGATION
+# ============================================================
+
+windowed_sales = (
+    enriched_orders
+    .groupBy(
+        window(
+            col("event_time"),
+            "5 minutes"
+        ),
+        col("city"),
+        col("category")
+    )
+    .agg(
+        sum("total_amount").alias("total_sales"),
+        sum("quantity").alias("total_quantity"),
+        count("order_id").alias("order_count")
+    )
+)
+
+
+# ============================================================
+# 10. SELECT FINAL COLUMNS
+# ============================================================
+
+result = (
+    windowed_sales
+    .select(
+        col("window.start").alias("window_start"),
+        col("window.end").alias("window_end"),
+        col("city"),
+        col("category"),
+        col("total_sales"),
+        col("total_quantity"),
+        col("order_count")
+    )
+)
+
+
+# ============================================================
+# 11. FOREACHBATCH FUNCTION
+# ============================================================
+
+def process_batch(batch_df, batch_id):
+
+    print("=" * 60)
+    print("PROCESSING BATCH:", batch_id)
+    print("=" * 60)
+
+    # Don't process empty batches
+    if batch_df.isEmpty():
+        print("Empty batch")
+        return
+
+    # Show current batch
+    batch_df.show(truncate=False)
+
+    # --------------------------------------------------------
+    # WRITE PARQUET
+    # --------------------------------------------------------
+
+    (
+        batch_df
+        .write
+        .mode("append")
+        .parquet(
+            "hdfs://localhost:9000/data/output/parquet"
+        )
+    )
+
+    # --------------------------------------------------------
+    # WRITE JSON
+    # --------------------------------------------------------
+
+    (
+        batch_df
+        .write
+        .mode("append")
+        .json(
+            "hdfs://localhost:9000/data/output/json"
+        )
+    )
+
+    print("Batch written successfully.")
+
+
+# ============================================================
+# 12. START STREAMING QUERY
+# ============================================================
+
+query = (
+    result
+    .writeStream
+    .foreachBatch(process_batch)
+    .outputMode("update")
+    .option(
+        "checkpointLocation",
+        "hdfs://localhost:9000/data/output/checkpoint"
+    )
+    .trigger(processingTime="10 seconds")
+    .start()
+)
+
+
+# ============================================================
+# 13. WAIT FOR STREAMING
+# ============================================================
+
+query.awaitTermination()

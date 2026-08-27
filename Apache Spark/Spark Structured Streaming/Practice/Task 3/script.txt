@@ -1,0 +1,191 @@
+# ============================================================
+# Spark Structured Streaming
+# JSON -> Transform -> Parquet + JSON
+# ============================================================
+
+from pyspark.sql import SparkSession
+from pyspark.sql.functions import *
+from pyspark.sql.types import *
+from pyspark.sql.window import Window
+
+
+# ============================================================
+# 1. Create Spark Session
+# ============================================================
+
+spark = (
+    SparkSession.builder
+    .appName("JSON Streaming Orders")
+    .getOrCreate()
+)
+
+print("Spark version:", spark.version)
+
+
+# ============================================================
+# 2. Define JSON schema
+# ============================================================
+
+schema = StructType([
+    StructField("order_id", StringType(), True),
+    StructField("timestamp", StringType(), True),
+
+    StructField(
+        "customer",
+        StructType([
+            StructField("customer_id", IntegerType(), True),
+            StructField("name", StringType(), True),
+            StructField("email", StringType(), True),
+
+            StructField(
+                "address",
+                StructType([
+                    StructField("city", StringType(), True),
+                    StructField("postal_code", StringType(), True)
+                ]),
+                True
+            )
+        ]),
+        True
+    ),
+
+    StructField("product", StringType(), True),
+    StructField("category", StringType(), True),
+    StructField("quantity", IntegerType(), True),
+    StructField("price", DoubleType(), True)
+])
+
+
+# ============================================================
+# 3. Read JSON as a STREAM
+# ============================================================
+
+orders_stream = (
+    spark.readStream
+    .schema(schema)
+    .json("hdfs://localhost:9000/data/streaming/orders")
+)
+
+
+# ============================================================
+# 4. Transform the streaming DataFrame
+# ============================================================
+
+orders_transformed = (
+    orders_stream
+
+    # Convert timestamp from String -> Timestamp
+    .withColumn(
+        "timestamp",
+        to_timestamp("timestamp")
+    )
+
+    # Extract nested customer information
+    .withColumn(
+        "customer_id",
+        col("customer.customer_id")
+    )
+
+    .withColumn(
+        "customer_name",
+        col("customer.name")
+    )
+
+    .withColumn(
+        "customer_email",
+        col("customer.email")
+    )
+
+    .withColumn(
+        "city",
+        col("customer.address.city")
+    )
+
+    .withColumn(
+        "postal_code",
+        col("customer.address.postal_code")
+    )
+
+    # Calculate total amount
+    .withColumn(
+        "total_amount",
+        col("quantity") * col("price")
+    )
+
+    # Select final columns
+    .select(
+        "order_id",
+        "timestamp",
+        "customer_id",
+        "customer_name",
+        "customer_email",
+        "city",
+        "postal_code",
+        "product",
+        "category",
+        "quantity",
+        "price",
+        "total_amount"
+    )
+)
+
+
+# ============================================================
+# 5. Output paths
+# ============================================================
+
+parquet_output = "hdfs://localhost:9000/data/streaming/output/parquet"
+
+json_output = "hdfs://localhost:9000/data/streaming/output/json"
+
+checkpoint_parquet = "hdfs://localhost:9000/data/streaming/checkpoint/parquet"
+
+checkpoint_json = "hdfs://localhost:9000/data/streaming/checkpoint/json"
+
+
+# ============================================================
+# 6. Write STREAM to Parquet
+# ============================================================
+
+parquet_query = (
+    orders_transformed.writeStream
+    .format("parquet")
+    .outputMode("append")
+    .option("path", parquet_output)
+    .option("checkpointLocation", checkpoint_parquet)
+    .trigger(processingTime="10 seconds")
+    .start()
+)
+
+
+# ============================================================
+# 7. Write STREAM to JSON
+# ============================================================
+
+json_query = (
+    orders_transformed.writeStream
+    .format("json")
+    .outputMode("append")
+    .option("path", json_output)
+    .option("checkpointLocation", checkpoint_json)
+    .trigger(processingTime="10 seconds")
+    .start()
+)
+
+
+# ============================================================
+# 8. Show streaming information
+# ============================================================
+
+print("Streaming started!")
+
+print("Parquet query:", parquet_query.id)
+
+print("JSON query:", json_query.id)
+
+
+# ============================================================
+# 9. Keep Spark Streaming running
+# ============================================================
+
+parquet_query.awaitTermination()

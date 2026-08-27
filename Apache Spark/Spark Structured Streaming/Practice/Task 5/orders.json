@@ -1,0 +1,4 @@
+{"order_id":"ORD001","customer_id":101,"product":"Laptop","category":"Electronics","quantity":1,"price":1200.0,"event_time":"2026-08-26T10:00:00"}
+{"order_id":"ORD002","customer_id":102,"product":"Phone","category":"Electronics","quantity":2,"price":700.0,"event_time":"2026-08-26T10:01:00"}
+{"order_id":"ORD003","customer_id":101,"product":"Mouse","category":"Accessories","quantity":3,"price":30.0,"event_time":"2026-08-26T10:02:00"}
+{"order_id":"ORD002","customer_id":102,"product":"Phone","category":"Electronics","quantity":2,"price":700.0,"event_time":"2026-08-26T10:01:00"}

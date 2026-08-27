@@ -1,0 +1,3 @@
+{"order_id":"ORD1001","timestamp":"2026-08-26T10:15:00Z","customer":{"customer_id":501,"name":"John Doe","email":"john@example.com","address":{"city":"Toronto","postal_code":"M5V2T6"}},"product":"Laptop","category":"Electronics","quantity":1,"price":1200.0}
+{"order_id":"ORD1002","timestamp":"2026-08-26T10:20:00Z","customer":{"customer_id":502,"name":"Jane Smith","email":"jane@example.com","address":{"city":"Vancouver","postal_code":"V6B1A1"}},"product":"Mouse","category":"Electronics","quantity":2,"price":25.0}
+{"order_id":"ORD1003","timestamp":"2026-08-26T10:25:00Z","customer":{"customer_id":503,"name":"Mike Brown","email":"mike@example.com","address":{"city":"Montreal","postal_code":"H2X1Y4"}},"product":"Keyboard","category":"Electronics","quantity":1,"price":75.0}

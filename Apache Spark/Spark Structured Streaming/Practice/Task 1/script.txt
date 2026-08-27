@@ -1,0 +1,118 @@
+from pyspark.sql import SparkSession
+from pyspark.sql.functions import *
+from pyspark.sql.types import *
+
+# ==========================================
+# 1. Create Spark Session
+# ==========================================
+
+spark = (
+    SparkSession.builder
+    .appName("JSON Streaming")
+    .getOrCreate()
+)
+
+print("Spark version:", spark.version)
+
+
+# ==========================================
+# 2. Define JSON schema
+# ==========================================
+
+schema = StructType([
+    StructField("order_id", StringType()),
+    StructField("timestamp", StringType()),
+
+    StructField(
+        "customer",
+        StructType([
+            StructField("customer_id", IntegerType()),
+            StructField("name", StringType()),
+            StructField("email", StringType()),
+
+            StructField(
+                "address",
+                StructType([
+                    StructField("city", StringType()),
+                    StructField("postal_code", StringType())
+                ])
+            )
+        ])
+    ),
+
+    StructField("product", StringType()),
+    StructField("category", StringType()),
+    StructField("quantity", IntegerType()),
+    StructField("price", DoubleType())
+])
+
+
+# ==========================================
+# 3. Read JSON as Streaming
+# ==========================================
+
+df = (
+    spark.readStream
+    .schema(schema)
+    .json("hdfs://localhost:9000/data/streaming/input")
+)
+
+
+# ==========================================
+# 4. Transform Data
+# ==========================================
+
+transformed_df = df.select(
+    col("order_id"),
+    col("customer.customer_id").alias("customer_id"),
+    col("customer.name").alias("customer_name"),
+    col("customer.address.city").alias("city"),
+    col("product"),
+    col("category"),
+    col("quantity"),
+    col("price"),
+    (col("quantity") * col("price")).alias("total_amount"),
+    col("timestamp")
+)
+
+
+# ==========================================
+# 5. Write Streaming Output
+# ==========================================
+
+query = (
+    transformed_df.writeStream
+    .format("parquet")
+    .outputMode("append")
+    .option(
+        "path",
+        "hdfs://localhost:9000/data/streaming/output"
+    )
+    .option(
+        "checkpointLocation",
+        "hdfs://localhost:9000/data/streaming/checkpoint"
+    )
+    .start()
+)
+
+
+# ==========================================
+# 6. Keep Streaming Application Running
+# ==========================================
+
+query.awaitTermination()
+
+
+
+------------------------------------------------------------------
+
+
+| Concept              | Meaning                              |
+| -------------------- | ------------------------------------ |
+| `readStream`         | Read data continuously               |
+| Streaming DataFrame  | DataFrame representing incoming data |
+| Transformation       | Modify/process the data              |
+| `writeStream`        | Write streaming results              |
+| `outputMode`         | How results are written              |
+| `checkpointLocation` | Stores streaming progress/state      |
+| `awaitTermination()` | Keeps application running            |

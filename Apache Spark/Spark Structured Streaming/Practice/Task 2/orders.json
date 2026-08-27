@@ -1,0 +1,16 @@
+{
+  "order_id": "ORD1001",
+  "timestamp": "2026-08-27T10:15:00Z",
+  "customer": {
+    "customer_id": 501,
+    "name": "John Doe",
+    "email": "john@example.com",
+    "address": {
+      "city": "Toronto"
+    }
+  },
+  "product": "Laptop",
+  "category": "Electronics",
+  "price": 1200.0,
+  "quantity": 1
+}

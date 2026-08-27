@@ -1,0 +1,79 @@
+from pyspark.sql import SparkSession
+from pyspark.sql.types import *
+
+# ==========================================
+# 1. Create Spark Session
+# ==========================================
+
+spark = (
+    SparkSession.builder
+    .appName("JSON Streaming")
+    .getOrCreate()
+)
+
+print("Spark version:", spark.version)
+
+
+# ==========================================
+# 2. Define Schema
+# ==========================================
+
+schema = StructType([
+    StructField("order_id", StringType(), True),
+    StructField("timestamp", StringType(), True),
+
+    StructField("customer", StructType([
+        StructField("customer_id", IntegerType(), True),
+        StructField("name", StringType(), True),
+        StructField("email", StringType(), True),
+
+        StructField("address", StructType([
+            StructField("city", StringType(), True)
+        ]), True)
+
+    ]), True),
+
+    StructField("product", StringType(), True),
+    StructField("category", StringType(), True),
+    StructField("price", DoubleType(), True),
+    StructField("quantity", IntegerType(), True)
+])
+
+
+# ==========================================
+# 3. Read JSON as Streaming
+# ==========================================
+
+df = (
+    spark.readStream
+    .schema(schema)
+    .json("hdfs://localhost:9000/data/json/")
+)
+
+
+# ==========================================
+# 4. Show Schema
+# ==========================================
+
+df.printSchema()
+
+
+# ==========================================
+# 5. Write Stream to Console
+# ==========================================
+
+query = (
+    df.writeStream
+    .format("console")
+    .outputMode("append")
+    .option("truncate", False)
+    .start()
+)
+
+
+# ==========================================
+# 6. Keep Streaming Application Running
+# ==========================================
+
+query.awaitTermination()
+

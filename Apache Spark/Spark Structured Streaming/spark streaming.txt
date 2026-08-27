@@ -1,0 +1,261 @@
+# ==============================================
+# PySpark Structured Streaming - JSON to JSON/Parquet
+# ==============================================
+
+from pyspark.sql import SparkSession
+from pyspark.sql.functions import *
+from pyspark.sql.types import *
+from pyspark.sql.window import Window
+
+
+# 1. Create Spark Session
+spark = (
+    SparkSession.builder
+    .appName("Spark Structured Streaming")
+    .getOrCreate()
+)
+
+# Print Spark version
+print(f"Spark version: {spark.version}")
+
+
+# ==============================================
+# 2. Read JSON data in batch
+# ==============================================
+
+df = spark.read.json(
+    "hdfs://localhost:9000/data/json/json.json"
+)
+
+# Print schema
+df.printSchema()
+
+
+# ==============================================
+# 3. Get schema to use for streaming
+# ==============================================
+
+schema = df.schema
+
+
+# ==============================================
+# 4. Read JSON data as a stream
+# ==============================================
+
+df_stream = (
+    spark.readStream
+    .format("json")
+    .schema(schema)
+    .option("multiline", True)
+    .load("hdfs://localhost:9000/data/json/")
+)
+
+
+# ==============================================
+# 5. Transformations
+# ==============================================
+
+# Convert timestamp from string to timestamp
+df_stream = df_stream.withColumn(
+    "timestamp",
+    to_timestamp(col("timestamp"))
+)
+
+# Calculate total sales for each order
+df_stream = df_stream.withColumn(
+    "total_sales",
+    col("price") * col("quantity")
+)
+
+# Filter expensive orders
+df_stream = df_stream.filter(
+    col("total_sales") >= 500
+)
+
+# Select required columns
+df_stream = df_stream.select(
+    "order_id",
+    "customer_id",
+    "customer_name",
+    "category",
+    "product",
+    "quantity",
+    "price",
+    "total_sales",
+    "city",
+    "timestamp"
+)
+
+
+# ==============================================
+# 6. Paths
+# ==============================================
+
+json_output_path = "hdfs://localhost:9000/data/json/output"
+json_checkpoint = "hdfs://localhost:9000/data/json/checkpoint"
+
+parquet_output_path = "hdfs://localhost:9000/data/sink"
+parquet_checkpoint = "hdfs://localhost:9000/data/sink/checkpoint"
+
+
+# ==============================================
+# 7. Write streaming output as JSON
+# ==============================================
+
+json_query = (
+    df_stream.writeStream
+    .format("json")
+    .outputMode("append")
+    .trigger(availableNow=True)
+    .option("path", json_output_path)
+    .option("checkpointLocation", json_checkpoint)
+    .start()
+)
+
+# Wait until JSON streaming query finishes
+json_query.awaitTermination()
+
+
+# ==============================================
+# 8. Write streaming output as Parquet
+# ==============================================
+
+parquet_query = (
+    df_stream.writeStream
+    .format("parquet")
+    .outputMode("append")
+    .trigger(availableNow=True)
+    .option("path", parquet_output_path)
+    .option("checkpointLocation", parquet_checkpoint)
+    .start()
+)
+
+# Wait until Parquet streaming query finishes
+parquet_query.awaitTermination()
+
+
+--------------------------------
+-- save the output as parquet -- 
+--------------------------------
+query = (
+    df_stream.writeStream
+    .format("parquet")
+    .outputMode("append")
+    .option("path", "hdfs://localhost:9000/data/sink")
+    .option("checkpointLocation", "hdfs://localhost:9000/data/sink/checkpoint")
+    .start()
+)
+
+query.awaitTermination()
+
+
+--------------------------------------------------------------------------
+
+==========================
+== HDFS Useful Commands ==
+==========================
+
+
+# list files recursively = go inside subdirectories 
+hdfs dfs -ls -R hdfs://localhost:9000/data/sink
+
+
+
+# list files 
+hdfs dfs -ls /data/sink 
+
+
+# show file size in a human-readable format
+hdfs dfs -ls -h /data/sink 
+
+
+# create directory 
+hdfs dfs -mkdir /data/sink 
+
+
+# create parent directories
+hdfs dfs -mkdir -p /data/project/input 
+
+
+
+# upload files
+hdfs dfs -put file.csv /data/
+
+
+# upload multiple files
+hdfs dfs -put *.csv /data/
+
+
+# upload files
+hdfs dfs -copyToLocal file.csv /data/
+
+
+# display the file content 
+hdfs dfs -cat /data/file.csv 
+
+
+# delete a file 
+hdfs dfs -rm /data/file.csv
+
+
+# delete a directory
+hdfs dfs -rm -r /data/input
+
+
+# force deletion 
+hdfs dfs -rm -r -f /data/test 
+
+
+# copy inside hdfs 
+hdfs dfs -cp /data/file.csv /data/backup/
+
+
+# move inside hdfs 
+hdfs dfs -mv /data/file.csv /backup/file.csv
+
+
+
+# rename inside hdfs 
+hdfs dfs -mv /data/file.csv /data/file2.csv
+
+
+
+# disk usage 
+hdfs dfs -du /data 
+
+
+# # show disk usage in human-format
+hdfs dfs -du -f /data
+
+
+# count files/directories
+hdfs dfs -count /data
+
+
+
+# count files/directories as human-readable
+hdfs dfs -count -f /data
+
+
+# check the file exists 
+hdfs dfs -test -e /data/file.csv 
+
+# then type 
+echo $?
+0 means it exists 
+2 means doesn't exists s
+
+
+
+# check the directory exists 
+hdfs dfs -test -d /data/file.csv
+
+
+# change the permissions 
+# hdfs dfs -chmod 755 /data
+
+
+# change the owner
+hdfs dfs -chown hadoop:hadoop /data/file.csv
+
+

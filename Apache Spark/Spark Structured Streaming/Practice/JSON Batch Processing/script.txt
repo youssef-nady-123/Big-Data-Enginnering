@@ -1,0 +1,215 @@
+from pyspark.sql import SparkSession
+from pyspark.sql.functions import *
+from pyspark.sql.types import *
+from pyspark.sql.window import Window
+
+# ============================================================
+# 1. Spark Session
+# ============================================================
+
+spark = (
+    SparkSession.builder
+    .appName("JSON Batch Processing Practice")
+    .getOrCreate()
+)
+
+print(f"Spark version: {spark.version}")
+
+# ============================================================
+# 2. Read JSON
+# ============================================================
+
+df = spark.read.json(
+    "hdfs://localhost:9000/data/json/orders.json"
+)
+
+print("Original Schema:")
+df.printSchema()
+
+# ============================================================
+# 3. Flatten nested JSON
+# ============================================================
+
+df = df.select(
+    "order_id",
+    "timestamp",
+    col("customer.customer_id").alias("customer_id"),
+    col("customer.name").alias("customer_name"),
+    col("customer.email").alias("customer_email"),
+    col("customer.address.city").alias("city"),
+    col("customer.address.country").alias("country"),
+    col("product.name").alias("product"),
+    col("product.category").alias("category"),
+    col("product.price").alias("price"),
+    "quantity",
+    "status",
+    "payment_method",
+    "tags"
+)
+
+# ============================================================
+# 4. Cast columns
+# ============================================================
+
+df = (
+    df
+    .withColumn("timestamp", to_timestamp("timestamp"))
+    .withColumn("quantity", col("quantity").cast("integer"))
+    .withColumn("price", col("price").cast("double"))
+)
+
+# ============================================================
+# 5. Calculate total amount
+# ============================================================
+
+df = df.withColumn(
+    "total_amount",
+    col("price") * col("quantity")
+)
+
+# ============================================================
+# 6. Date transformations
+# ============================================================
+
+df = (
+    df
+    .withColumn("order_date", to_date("timestamp"))
+    .withColumn("year", year("timestamp"))
+    .withColumn("month", month("timestamp"))
+    .withColumn("day", day("timestamp"))
+    .withColumn("hour", hour("timestamp"))
+)
+
+# ============================================================
+# 7. String transformations
+# ============================================================
+
+df = (
+    df
+    .withColumn("customer_name", trim("customer_name"))
+    .withColumn("customer_name_upper", upper("customer_name"))
+    .withColumn("email_lower", lower("customer_email"))
+)
+
+# ============================================================
+# 8. Conditional transformation
+# ============================================================
+
+df = df.withColumn(
+    "order_size",
+    when(col("total_amount") >= 2000, "Very Large")
+    .when(col("total_amount") >= 1000, "Large")
+    .when(col("total_amount") >= 500, "Medium")
+    .otherwise("Small")
+)
+
+# ============================================================
+# 9. Array transformations
+# ============================================================
+
+df = (
+    df
+    .withColumn("tag_count", size("tags"))
+    .withColumn("first_tag", element_at("tags", 1))
+)
+
+# ============================================================
+# 10. Filter
+# ============================================================
+
+completed_df = df.filter(
+    col("status") == "completed"
+)
+
+# ============================================================
+# 11. Aggregation
+# ============================================================
+
+category_summary = (
+    completed_df
+    .groupBy("category")
+    .agg(
+        count("*").alias("orders"),
+        sum("quantity").alias("items_sold"),
+        sum("total_amount").alias("total_sales"),
+        avg("total_amount").alias("average_order"),
+        max("total_amount").alias("largest_order"),
+        min("total_amount").alias("smallest_order")
+    )
+    .orderBy(col("total_sales").desc())
+)
+
+# ============================================================
+# 12. Window function
+# ============================================================
+
+window = (
+    Window
+    .partitionBy("category")
+    .orderBy(col("total_amount").desc())
+)
+
+ranked_df = completed_df.withColumn(
+    "rank",
+    row_number().over(window)
+)
+
+# ============================================================
+# 13. Display
+# ============================================================
+
+print("\n===== TRANSFORMED DATA =====")
+
+df.select(
+    "order_id",
+    "customer_name",
+    "city",
+    "product",
+    "category",
+    "price",
+    "quantity",
+    "total_amount",
+    "status",
+    "order_size",
+    "order_date",
+    "tag_count"
+).show(30, truncate=False)
+
+print("\n===== CATEGORY SUMMARY =====")
+
+category_summary.show(truncate=False)
+
+print("\n===== TOP ORDERS PER CATEGORY =====")
+
+ranked_df.filter(
+    col("rank") <= 3
+).select(
+    "category",
+    "product",
+    "total_amount",
+    "rank"
+).show(truncate=False)
+
+# ============================================================
+# 14. Save JSON
+# ============================================================
+
+df.write \
+    .mode("overwrite") \
+    .json(
+        "hdfs://localhost:9000/data/output/orders_json"
+    )
+
+# ============================================================
+# 15. Save Parquet
+# ============================================================
+
+df.write \
+    .mode("overwrite") \
+    .parquet(
+        "hdfs://localhost:9000/data/output/orders_parquet"
+    )
+
+print("\nData saved successfully.")
+
+spark.stop()

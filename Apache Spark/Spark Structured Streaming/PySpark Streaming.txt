@@ -1,0 +1,105 @@
+from pyspark.sql import SparkSession
+from pyspark.sql.functions import *
+from pyspark.sql.types import *
+
+
+# ============================================================
+# 1. Create SparkSession
+# ============================================================
+
+spark = (
+    SparkSession.builder
+    .appName("JSON-Streaming-Window")
+    .master("local[*]")
+    .getOrCreate()
+)
+
+spark.sparkContext.setLogLevel("WARN")
+
+
+# ============================================================
+# 2. Define schema
+# ============================================================
+
+schema = StructType([
+    StructField("user_id", IntegerType(), True),
+    StructField("event", StringType(), True),
+    StructField("timestamp", StringType(), True)
+])
+
+
+# ============================================================
+# 3. Read JSON files as a STREAM
+# ============================================================
+# IMPORTANT:
+# Use the DIRECTORY, not json.json itself.
+#
+# Correct:
+# hdfs://localhost:9000/data/json
+#
+# NOT:
+# hdfs://localhost:9000/data/json/json.json
+
+df = (
+    spark.readStream
+    .schema(schema)
+    .json("hdfs://localhost:9000/data/json")
+)
+
+
+# ============================================================
+# 4. Convert timestamp string to TimestampType
+# ============================================================
+
+df = df.withColumn(
+    "event_time",
+    to_timestamp("timestamp")
+)
+
+
+# ============================================================
+# 5. Add 10-minute watermark
+# ============================================================
+
+df = df.withWatermark(
+    "event_time",
+    "10 minutes"
+)
+
+
+# ============================================================
+# 6. Create 5-minute tumbling window
+# ============================================================
+# Count events by event type
+
+result = (
+    df.groupBy(
+        window("event_time", "5 minutes"),
+        "event"
+    )
+    .agg(
+        count("*").alias("total_counts")
+    )
+)
+
+
+# ============================================================
+# 7. Write result to CONSOLE
+# ============================================================
+# Use console first to make sure the streaming logic works.
+
+query = (
+    result.writeStream
+        .format("parquet")
+        .outputMode("append")
+        .option("path", "hdfs://localhost:9000/data/sink_append/output")
+        .option("checkpointLocation", "hdfs://localhost:9000/data/sink_append/checkpoint")
+        .start()
+)
+
+
+# ============================================================
+# 8. Keep the streaming query running
+# ============================================================
+
+query.awaitTermination()
